@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a09" />
+<title>AgentGuard — How it works, end to end</title>
+<meta name="description" content="A scrollable, animated walkthrough of AgentGuard. Part 1: what the user sees. Part 2: how the engine works under the hood." />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AgentGuard — How it works, end to end" />
+<meta property="og:description" content="UX walkthrough + internal engine animation. Built for investors and engineers who want the full picture." />
+<meta property="og:image" content="og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="demo.css" />
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('agentguard.theme');
+      var sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', saved || sys);
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+  })();
+</script>
+</head>
+<body>
+
+<div class="cursor" aria-hidden="true"></div>
+<div class="cursor-dot" aria-hidden="true"></div>
+
+<header class="demo-nav">
+  <a class="back" href="index.html">← AGENTGUARD</a>
+  <div class="nav-meta hide-mobile" style="font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: -.005em;">
+    DEMO · END-TO-END
+  </div>
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  </button>
+  <div class="progress-rail"><div class="progress-fill" id="scroll-progress"></div></div>
+</header>
+
+<main>
+
+<!-- ==================== INTRO ==================== -->
+<section class="demo-intro">
+  <div class="scene-pill">END-TO-END WALKTHROUGH · 10 MINUTES</div>
+  <h1>How AgentGuard <span class="accent">actually works.</span></h1>
+  <p>
+    Two halves. Part one: what a developer sees from <span class="mono">pip install</span> to a green PR.
+    Part two: what the engine does between those two moments — spec extraction, scenario synthesis,
+    parallel execution against stateful tool clones, behavioral clustering, root-cause ranking.
+    Scroll. Each scene animates as it lands.
+  </p>
+  <nav class="demo-toc">
+    <a href="#part-1">
+      <div class="lbl">PART 1 · 5 SCENES</div>
+      <div class="ttl">The user's journey →</div>
+    </a>
+    <a href="#part-2">
+      <div class="lbl">PART 2 · 5 SCENES</div>
+      <div class="ttl">Inside the engine →</div>
+    </a>
+  </nav>
+</section>
+
+<!-- ==================== PART 1: UX ==================== -->
+<section class="chapter" id="part-1">
+  <div class="eyebrow">PART 1</div>
+  <h2>The user's journey.</h2>
+  <p>
+    Day 0 to Day 30 with Maya, a backend engineer who owns a refund-support agent.
+    Five screens. Real product UI, no abstractions.
+  </p>
+</section>
+
+<!-- ----- UX Scene 1: Install + Analyze ----- -->
+<section class="scene" id="ux-1">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">01</span>UX · INSTALL</div>
+    <h3>Point AgentGuard at your <span class="accent">existing docs.</span></h3>
+    <p class="scene-desc">
+      One CLI install. Run <code>agentguard analyze</code> against your PRD, README, or agent source.
+      In under a minute the analyzer extracts a structured <strong>Agent Behavior Model</strong> —
+      the spec of what your agent is <em>supposed</em> to do, in a form the rest of the system can reason about.
+    </p>
+    <p class="scene-desc">
+      No new framework. No agent rewrite. No annotated test cases. You write nothing — AgentGuard reads.
+    </p>
+    <div class="scene-pill accent">ELAPSED 47s · BEHAVIOR MODEL EXTRACTED</div>
+  </div>
+  <div class="scene-stage">
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-title">~/refund-agent · zsh</div>
+      </div>
+      <div class="win-body">
+        <div class="term" id="ux-term-1"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- UX Scene 2: View ABM ----- -->
+<section class="scene flip" id="ux-2">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">02</span>UX · REVIEW THE MODEL</div>
+    <h3>Skim the model. <span class="accent">Edit one line.</span> Commit.</h3>
+    <p class="scene-desc">
+      The behavior model is plain YAML. Maya scans the extracted intents, tools, and rules.
+      AgentGuard flagged her tenant-isolation rule with <code>0.78</code> confidence — she promotes it
+      to <code>1.0</code> with a single edit. That's it.
+    </p>
+    <p class="scene-desc">
+      Everything else — the 8,427 scenarios, the failure injection matrix, the policy gates — is
+      derived from this 60-line YAML. Change the model, change the entire test suite.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-title">agentguard/model.yml</div>
+      </div>
+      <div class="win-body">
+        <div class="abm" id="ux-abm">
+          <div class="abm-card">
+            <div class="abm-card-h"><div class="h">INTENTS</div><div class="c">4</div></div>
+            <div class="abm-chips">
+              <span class="abm-chip" data-delay="0">process_refund</span>
+              <span class="abm-chip" data-delay="120">escalate</span>
+              <span class="abm-chip" data-delay="240">decline</span>
+              <span class="abm-chip" data-delay="360">request_info</span>
+            </div>
+          </div>
+          <div class="abm-card">
+            <div class="abm-card-h"><div class="h">TOOLS</div><div class="c">3</div></div>
+            <div class="abm-chips">
+              <span class="abm-chip" data-delay="480">slack</span>
+              <span class="abm-chip" data-delay="600">stripe</span>
+              <span class="abm-chip" data-delay="720">linear</span>
+            </div>
+          </div>
+          <div class="abm-card">
+            <div class="abm-card-h"><div class="h">ENTITIES</div><div class="c">5</div></div>
+            <div class="abm-chips">
+              <span class="abm-chip" data-delay="840">customer</span>
+              <span class="abm-chip" data-delay="960">payment</span>
+              <span class="abm-chip" data-delay="1080">refund</span>
+              <span class="abm-chip" data-delay="1200">ticket</span>
+              <span class="abm-chip" data-delay="1320">channel</span>
+            </div>
+          </div>
+          <div class="abm-card">
+            <div class="abm-card-h"><div class="h">RULES</div><div class="c">5</div></div>
+            <div class="abm-chips">
+              <span class="abm-chip accent" data-delay="1440">no duplicate refund</span>
+              <span class="abm-chip accent" data-delay="1560">approval &gt; $500</span>
+              <span class="abm-chip accent" data-delay="1680">no PII external</span>
+              <span class="abm-chip accent" data-delay="1800">tenant isolation</span>
+              <span class="abm-chip accent" data-delay="1920">one refund per ticket</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- UX Scene 3: Run Exploration ----- -->
+<section class="scene" id="ux-3">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">03</span>UX · EXPLORE</div>
+    <h3>Run <span class="accent">8,427 scenarios</span> against your agent.</h3>
+    <p class="scene-desc">
+      <code>agentguard explore --depth full</code>. The synthesizer generates the test space.
+      The mutation engine dedupes by behavioral signature. The worker pool spins up clones and
+      executes in parallel.
+    </p>
+    <p class="scene-desc">
+      Live feed of every scenario as it runs. <strong>PASS</strong> in green,
+      <strong>FAIL</strong> in red. Eleven minutes on a laptop. Two minutes on CI hardware.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-title">agentguard · explore</div>
+      </div>
+      <div class="win-body">
+        <div class="run-head">
+          <h4>Exploration · refund_agent · branch <span class="mono" style="color:var(--muted)">main</span></h4>
+          <div class="meta" id="run-time">0:00</div>
+        </div>
+        <div class="run-progress"><div class="run-progress-fill" id="run-fill"></div></div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;" id="run-count">0 / 214 scenarios · 8 workers</div>
+
+        <div class="run-stats">
+          <div class="run-stat pass"><div class="v" id="rs-pass">0</div><div class="l">PASSED</div></div>
+          <div class="run-stat fail"><div class="v" id="rs-fail">0</div><div class="l">FAILED</div></div>
+          <div class="run-stat"><div class="v" id="rs-clusters">0</div><div class="l">CLUSTERS</div></div>
+          <div class="run-stat"><div class="v" id="rs-score">—</div><div class="l">RISK SCORE</div></div>
+        </div>
+
+        <div class="run-feed" id="run-feed"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- UX Scene 4: Cluster Detail ----- -->
+<section class="scene flip" id="ux-4">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">04</span>UX · DIAGNOSE</div>
+    <h3>Not 46 bugs. <span class="accent">Four root causes.</span></h3>
+    <p class="scene-desc">
+      The 46 failing scenarios collapse into 4 behavioral clusters — same wrong tool-call pattern,
+      same underlying bug. For each cluster, AgentGuard ranks the most likely cause with a confidence
+      percentage and links each hypothesis to specific trace events.
+    </p>
+    <p class="scene-desc">
+      Maya reads the top suspect, looks at the linked evidence, fixes it. Reruns the cluster.
+      Twenty-two scenarios go from FAIL to PASS in one commit.
+    </p>
+    <div class="scene-pill accent">RISK SCORE 92 → 18 IN ONE FIX</div>
+  </div>
+  <div class="scene-stage">
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-title">Cluster #1 · 22 scenarios · refund</div>
+      </div>
+      <div class="win-body">
+        <div class="cluster-card crit">
+          <div class="cluster-head">
+            <h4>Duplicate refund created</h4>
+            <div class="sev crit">CRITICAL</div>
+          </div>
+          <div class="cluster-sub">22 scenarios · refund + retry + timeout-after-success family</div>
+
+          <div class="cause">
+            <div>
+              <div class="pct" data-pct="87">0%</div>
+              <div class="bar"><div class="bar-fill" data-fill="87"></div></div>
+            </div>
+            <div>
+              <div class="txt">No idempotency key on <code style="font-family:var(--mono);font-size:12px">POST /refunds</code> after timeout</div>
+              <div class="evi">22/22 runs · agents/refund/stripe_client.py:84</div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div>
+              <div class="pct" data-pct="71">0%</div>
+              <div class="bar"><div class="bar-fill" data-fill="71"></div></div>
+            </div>
+            <div>
+              <div class="txt">Agent does not GET /refunds before POST on retry</div>
+              <div class="evi">16/22 runs · agents/refund/policy.py:31</div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div>
+              <div class="pct" data-pct="42">0%</div>
+              <div class="bar"><div class="bar-fill" data-fill="42"></div></div>
+            </div>
+            <div>
+              <div class="txt">Retry strategy uses fixed-interval, no jitter</div>
+              <div class="evi">9/22 runs · agents/refund/retry.py:12</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- UX Scene 5: PR Gate ----- -->
+<section class="scene" id="ux-5">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">05</span>UX · CI GATE</div>
+    <h3>Block bad merges <span class="accent">before</span> they ship.</h3>
+    <p class="scene-desc">
+      One workflow file. AgentGuard runs the failure-prone subset on every PR — typically under two minutes.
+      A teammate trims the system prompt to be "more concise." AgentGuard detects 9 new critical scenarios.
+      Merge blocked. PR comment shows what changed and why.
+    </p>
+    <p class="scene-desc">
+      Teammate reverts the line. Rerun. Pass. Merge. Production never sees the regression.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-title">github.com / refund-agent / pull / 142</div>
+      </div>
+      <div class="win-body">
+        <div class="pr-head">
+          <div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;">
+              <div class="pr-badge">CHANGES REQUESTED</div>
+              <div class="pr-meta">#142 · 2 commits · 4 files changed</div>
+            </div>
+            <div class="pr-title">prompt: tighten system message · @teammate</div>
+          </div>
+        </div>
+
+        <div class="comment">
+          <div class="comment-head">
+            <div class="av">A</div>
+            <div><strong style="color:var(--ink);font-family:var(--sans)">agentguard-bot</strong> · 12 minutes ago</div>
+          </div>
+          <div class="comment-body">
+            <div class="h">AgentGuard: BLOCKED</div>
+            <div>
+              New failure cluster detected (not present in baseline):<br/>
+              &nbsp;&nbsp;Cluster · 9 scenarios · <strong style="color:var(--accent)">CRITICAL</strong><br/>
+              &nbsp;&nbsp;Symptom: skipped human approval for refunds &gt; $500
+            </div>
+            <div style="margin-top:12px">
+              Suspected causes:<br/>
+              &nbsp;&nbsp;[84%] New prompt removed "ALWAYS check threshold" instruction<br/>
+              &nbsp;&nbsp;[52%] Tool-use order changed: refund called before approval check
+            </div>
+
+            <div class="check-list">
+              <div class="check-row"><span class="mark ok">✓</span><span>baseline · 38/38 passed</span><span class="t">1m 47s</span></div>
+              <div class="check-row"><span class="mark ok">✓</span><span>prompt regression · 29/38 passed</span><span class="t">1m 52s</span></div>
+              <div class="check-row"><span class="mark">●</span><span>critical cluster · 9 scenarios failed</span><span class="t">→ report</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PART 2: ENGINE ==================== -->
+<section class="chapter" id="part-2">
+  <div class="eyebrow">PART 2</div>
+  <h2>Inside the engine.</h2>
+  <p>
+    What just happened between <span class="mono">explore</span> and the green PR. Five engineered stages,
+    each one a different kind of work. Click any axis below to see it animate.
+  </p>
+</section>
+
+<!-- ----- ENGINE Scene 1: Spec Ingest ----- -->
+<section class="scene" id="eng-1">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">01</span>ENGINE · COMPREHENSION</div>
+    <h3>Read the spec. <span class="accent">Extract a typed model.</span></h3>
+    <p class="scene-desc">
+      A small Claude pipeline reads your PRD, README, agent source, and tool schemas. It uses
+      <strong>function-calling with a strict JSON schema</strong> to extract intents, tools, entities,
+      rules, and tenancy boundaries.
+    </p>
+    <p class="scene-desc">
+      Output is not free-text. It's a deterministic, machine-readable Agent Behavior Model. Confidence
+      scores per field. Source spans for traceability. Re-runnable with the same input → same output.
+    </p>
+    <div class="scene-pill">CLAUDE SONNET · PROMPT-CACHED · TEMP 0.0</div>
+  </div>
+  <div class="scene-stage">
+    <div class="ingest-stage">
+      <div class="doc" id="doc-pane">
+        <span class="doc-line">## refund-agent</span>
+        <span class="doc-line">When a user asks for a</span>
+        <span class="doc-line kw">refund</span>
+        <span class="doc-line">in Slack, the agent</span>
+        <span class="doc-line">verifies the </span>
+        <span class="doc-line kw">payment</span>
+        <span class="doc-line">in Stripe, then</span>
+        <span class="doc-line">processes the refund</span>
+        <span class="doc-line">unless the amount is</span>
+        <span class="doc-line acc">above $500 (requires approval).</span>
+        <span class="doc-line">Update the </span>
+        <span class="doc-line kw">Linear</span>
+        <span class="doc-line">ticket. Never post </span>
+        <span class="doc-line acc">PII to external channels.</span>
+        <span class="doc-line">Each refund is</span>
+        <span class="doc-line acc">scoped to the customer's tenant.</span>
+        <span class="doc-line"></span>
+        <span class="doc-line dim">~ 60 more lines</span>
+      </div>
+      <div class="ingest-arrow">→</div>
+      <div class="extractor" id="extractor-pane">
+        <div class="e-h">EXTRACTED · confidence</div>
+        <div class="tok" data-d="200"><span class="k">intent</span><span class="v">process_refund</span></div>
+        <div class="tok" data-d="500"><span class="k">tool</span><span class="v">slack · stripe · linear</span></div>
+        <div class="tok" data-d="800"><span class="k">entity</span><span class="v">customer · payment · ticket</span></div>
+        <div class="tok" data-d="1100"><span class="k">rule</span><span class="v">approval &gt; $500</span></div>
+        <div class="tok" data-d="1400"><span class="k">rule</span><span class="v">no PII external</span></div>
+        <div class="tok" data-d="1700"><span class="k">rule</span><span class="v">tenant isolation · 0.78</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- ENGINE Scene 2: ABM Graph ----- -->
+<section class="scene flip" id="eng-2">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">02</span>ENGINE · MODEL GRAPH</div>
+    <h3>Turn flat YAML into a <span class="accent">typed dependency graph.</span></h3>
+    <p class="scene-desc">
+      Once we have the model, we build a directed graph: entities point at tools, tools point at
+      operations, operations are gated by rules. The graph is what the synthesizer walks — not the YAML.
+    </p>
+    <p class="scene-desc">
+      Every edge is typed. Every rule is a constraint solver predicate. This is what makes
+      <em>generating</em> realistic scenarios possible — we know what's connected to what, and what
+      can break what.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="graph" id="graph-stage">
+      <svg viewBox="0 0 600 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <path class="graph-edge" data-d="600" d="M 300 90 Q 240 160 180 210" />
+        <path class="graph-edge" data-d="700" d="M 300 90 Q 360 160 420 210" />
+        <path class="graph-edge" data-d="800" d="M 180 210 Q 180 280 180 340" />
+        <path class="graph-edge" data-d="900" d="M 420 210 Q 420 280 420 340" />
+        <path class="graph-edge" data-d="1000" d="M 180 210 Q 300 240 420 210" />
+        <path class="graph-edge" data-d="1100" d="M 180 340 Q 300 380 420 340" />
+      </svg>
+      <div class="graph-node entity" data-d="100" style="left:50%; top:90px;">CUSTOMER</div>
+      <div class="graph-node entity" data-d="300" style="left:30%; top:210px;">PAYMENT</div>
+      <div class="graph-node entity" data-d="500" style="left:70%; top:210px;">TICKET</div>
+      <div class="graph-node tool" data-d="700" style="left:30%; top:340px;">STRIPE</div>
+      <div class="graph-node tool" data-d="900" style="left:70%; top:340px;">LINEAR</div>
+      <div class="graph-node rule" data-d="1300" style="left:50%; top:430px;">refund · approval &gt; $500</div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- ENGINE Scene 3: Synthesis ----- -->
+<section class="scene" id="eng-3">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">03</span>ENGINE · SYNTHESIS</div>
+    <h3>Six axes. <span class="accent">Combinatorial explosion.</span> Then dedupe.</h3>
+    <p class="scene-desc">
+      For every intent in the graph, the synthesizer picks combinations across six axes — phrasing,
+      data state, identity, tool failure, sequence, scale. A naive product is 9⁶ = 531,441 scenarios.
+      Most are equivalent.
+    </p>
+    <p class="scene-desc">
+      A coverage-guided mutation engine seeded by failures keeps only behaviorally distinct cases.
+      8,427 generated. <strong>214 distinct behavioral signatures.</strong> The rest are dropped before
+      they touch a worker.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="synth">
+      <div class="synth-axes">
+        <div class="synth-axis"><div class="name">Phrasing</div><div class="count" data-n="9">0</div></div>
+        <div class="synth-axis"><div class="name">Data</div><div class="count" data-n="9">0</div></div>
+        <div class="synth-axis"><div class="name">Identity</div><div class="count" data-n="9">0</div></div>
+        <div class="synth-axis"><div class="name">Failure</div><div class="count" data-n="9">0</div></div>
+        <div class="synth-axis"><div class="name">Sequence</div><div class="count" data-n="9">0</div></div>
+        <div class="synth-axis"><div class="name">Scale</div><div class="count" data-n="9">0</div></div>
+      </div>
+      <canvas class="synth-canvas" id="synth-canvas"></canvas>
+      <div class="synth-foot">
+        <div class="b"><div class="v" id="synth-gen">0</div><div class="l">GENERATED</div></div>
+        <div class="b accent"><div class="v" id="synth-uniq">0</div><div class="l">DISTINCT</div></div>
+        <div class="b"><div class="v" id="synth-dropped">0</div><div class="l">DEDUPED</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- ENGINE Scene 4: Execution + Clones ----- -->
+<section class="scene flip" id="eng-4">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">04</span>ENGINE · EXECUTION</div>
+    <h3>Workers. <span class="accent">Stateful clones.</span> Real side effects.</h3>
+    <p class="scene-desc">
+      A pool of workers (default = CPU cores) pulls scenarios off the queue and runs the agent
+      unmodified — but pointed at AgentGuard's <strong>stateful clones</strong> of Slack, Stripe, and Linear.
+    </p>
+    <p class="scene-desc">
+      Clones are real HTTP services with real in-memory state. Failure injection is deterministic
+      and per-scenario: <em>timeout-after-success</em>, <em>429 rate-limited</em>, <em>500 with stale read</em>,
+      <em>duplicate webhook</em>. Every request, response, and state mutation is captured.
+    </p>
+  </div>
+  <div class="scene-stage">
+    <div class="exec">
+      <div class="workers">
+        <div class="h">WORKER POOL · 8 PROCESSES</div>
+        <div class="worker busy"><div class="dot"></div><div class="name">w-01</div><div class="state">scenario 1,204</div></div>
+        <div class="worker busy"><div class="dot"></div><div class="name">w-02</div><div class="state">scenario 1,205</div></div>
+        <div class="worker busy"><div class="dot"></div><div class="name">w-03</div><div class="state">scenario 1,206</div></div>
+        <div class="worker busy"><div class="dot"></div><div class="name">w-04</div><div class="state">scenario 1,207</div></div>
+        <div class="worker"><div class="dot"></div><div class="name">w-05</div><div class="state">scenario 1,208</div></div>
+        <div class="worker"><div class="dot"></div><div class="name">w-06</div><div class="state">scenario 1,209</div></div>
+        <div class="worker idle"><div class="dot"></div><div class="name">w-07</div><div class="state">idle</div></div>
+        <div class="worker idle"><div class="dot"></div><div class="name">w-08</div><div class="state">idle</div></div>
+      </div>
+      <div class="clones">
+        <div class="clone">
+          <div>
+            <div class="clone-name">slack-clone</div>
+            <div class="clone-port">:4001 · 1 channel · 4 users</div>
+            <div class="clone-state">
+              <span>messages · 12</span>
+              <span class="mutated">+1</span>
+            </div>
+          </div>
+          <div class="traffic"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="clone">
+          <div>
+            <div class="clone-name">stripe-clone</div>
+            <div class="clone-port">:4002 · 1 customer · 2 payments</div>
+            <div class="clone-state">
+              <span>refunds · 0</span>
+              <span class="mutated">+1</span>
+              <span>fault: timeout_after_success</span>
+            </div>
+          </div>
+          <div class="traffic"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="clone">
+          <div>
+            <div class="clone-name">linear-clone</div>
+            <div class="clone-port">:4003 · 1 issue · status: open</div>
+            <div class="clone-state">
+              <span>comments · 0</span>
+              <span class="mutated">status → resolved</span>
+            </div>
+          </div>
+          <div class="traffic"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- ENGINE Scene 5: Clustering ----- -->
+<section class="scene" id="eng-5">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">05</span>ENGINE · CLUSTERING</div>
+    <h3>Hash every trace. <span class="accent">Group by signature.</span></h3>
+    <p class="scene-desc">
+      Each completed run produces a trace. We compute a <strong>behavioral signature</strong> — a canonical
+      hash of the agent's tool-call sequence + final state shape, ignoring incidental data.
+    </p>
+    <p class="scene-desc">
+      Identical signatures = same root cause. 46 failing scenarios across the suite collapse into 4
+      visible clusters. Each cluster gets one bug report, not 46.
+    </p>
+    <div class="scene-pill accent">SHA-256(tool_seq · state_shape · failure_kind)</div>
+  </div>
+  <div class="scene-stage">
+    <div class="cluster-stage">
+      <canvas class="cluster-canvas" id="cluster-anim"></canvas>
+      <div class="cluster-legend">
+        TRACES → SIGNATURES → CLUSTERS
+        <div class="v" id="cluster-counts">600 traces · 9 signatures</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ----- ENGINE Scene 6: Root cause ranker ----- -->
+<section class="scene flip" id="eng-6">
+  <div class="scene-copy">
+    <div class="scene-step"><span class="num">06</span>ENGINE · ROOT CAUSE RANKER</div>
+    <h3>For each cluster: <span class="accent">hypothesize, score, rank.</span></h3>
+    <p class="scene-desc">
+      Per cluster, the ranker enumerates causal hypotheses from a learned library plus a structured
+      LLM prompt grounded in the trace. Each hypothesis is scored by how well it explains the failures
+      in that cluster — controlling for selection bias.
+    </p>
+    <p class="scene-desc">
+      Confidence is a Bayesian posterior over the cluster's traces. Evidence is concrete file + line.
+      AgentGuard never invents fixes. It points the engineer at the smallest set of suspects, ranked.
+    </p>
+    <div class="scene-pill">EVIDENCE-LINKED · NO FAUX CONFIDENCE · NO AUTO-FIX</div>
+  </div>
+  <div class="scene-stage">
+    <div class="ranker" id="ranker">
+      <div class="hyp">
+        <div class="hyp-h"><div class="lbl">HYPOTHESIS 01 · CRITICAL</div><div class="score" data-s="87">0</div></div>
+        <div class="hyp-txt">No idempotency key on POST /refunds after timeout</div>
+        <div class="hyp-bar"><div class="hyp-bar-fill" data-fill="87"></div></div>
+        <div class="hyp-evi">
+          <span class="k">EVIDENCE</span><span>22/22 runs · stripe_client.py:84 missing Idempotency-Key header</span>
+          <span class="k">CONFLICT</span><span>none</span>
+          <span class="k">FIX HINT</span><span>derive key from payment.id, attach to retry context</span>
+        </div>
+      </div>
+      <div class="hyp">
+        <div class="hyp-h"><div class="lbl">HYPOTHESIS 02</div><div class="score" data-s="71">0</div></div>
+        <div class="hyp-txt">Agent does not GET /refunds before POST on retry</div>
+        <div class="hyp-bar"><div class="hyp-bar-fill" data-fill="71"></div></div>
+        <div class="hyp-evi">
+          <span class="k">EVIDENCE</span><span>16/22 runs · policy.py:31 no pre-check in retry branch</span>
+        </div>
+      </div>
+      <div class="hyp">
+        <div class="hyp-h"><div class="lbl">HYPOTHESIS 03</div><div class="score" data-s="42">0</div></div>
+        <div class="hyp-txt">Retry strategy uses fixed-interval, no jitter</div>
+        <div class="hyp-bar"><div class="hyp-bar-fill" data-fill="42"></div></div>
+        <div class="hyp-evi">
+          <span class="k">EVIDENCE</span><span>9/22 runs · retry.py:12 fixed 1s backoff</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CTA ==================== -->
+<section class="demo-cta">
+  <div class="scene-pill" style="margin:0 auto;background:color-mix(in oklab, var(--accent) 18%, transparent);color:var(--accent);">END · YOU'VE SEEN THE WHOLE THING</div>
+  <h2>10 scenes. <span class="accent">One product.</span></h2>
+  <p>
+    A spec-aware fuzzer with stateful tool simulation and ranked root-cause attribution. No
+    competitor does all three. We're onboarding 50 teams for the Q3 2026 private beta.
+  </p>
+  <div class="actions">
+    <a class="primary" href="index.html#waitlist">REQUEST EARLY ACCESS →</a>
+    <a class="ghost" href="index.html">← BACK TO HOME</a>
+  </div>
+</section>
+
+</main>
+
+<script src="script.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>
