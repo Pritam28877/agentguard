@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a09" />
+<title>AgentGuard — Product preview</title>
+<meta name="description" content="Clickable preview of the AgentGuard web application. Navigate the sidebar to explore every screen the user sees." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="product.css" />
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('agentguard.theme');
+      var sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', saved || sys);
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+  })();
+</script>
+</head>
+<body class="app">
+
+<!-- ============ Welcome modal (first visit) ============ -->
+<div class="welcome" id="welcome">
+  <div class="welcome-card">
+    <div class="scene-pill" style="margin:0 auto 12px;background:color-mix(in oklab, var(--accent) 18%, transparent);color:var(--accent);">PRODUCT PREVIEW · CLICKABLE</div>
+    <h2>This is the <span class="accent">actual app.</span></h2>
+    <p>
+      Walk the sidebar. Click any run, any cluster, any trace event. Every screen here is what a
+      paying customer sees. Sample data is realistic but synthetic.
+    </p>
+    <div class="actions">
+      <button class="btn primary" id="welcome-close">START EXPLORING →</button>
+      <a class="btn" href="index.html">← back to home</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Toast container ============ -->
+<div class="toast" id="toast"></div>
+
+<!-- ============ App shell ============ -->
+<div class="app-shell">
+
+  <!-- ===== Top bar ===== -->
+  <header class="app-top">
+    <a class="app-brand" href="index.html">
+      <span class="mark"></span>
+      AGENTGUARD
+    </a>
+    <div class="app-switcher">
+      <span class="crumb">Palo Alto Innovation Labs <span class="caret">▾</span></span>
+      <span class="sep">/</span>
+      <span class="crumb">refund-agent <span class="caret">▾</span></span>
+      <span class="sep">·</span>
+      <span class="mono">main</span>
+    </div>
+    <div class="app-top-right">
+      <div class="search-pill" title="Search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Search runs, clusters, traces…
+        <span class="kbd">⌘K</span>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme" style="width:32px;height:32px;">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      </button>
+      <div class="avatar" title="Maya">M</div>
+    </div>
+  </header>
+
+  <!-- ===== Sidebar ===== -->
+  <aside class="app-side">
+    <div class="nav-group">PROJECT</div>
+    <a class="nav-item" data-view="home" href="#home">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg></span>
+      <span>Home</span>
+    </a>
+    <a class="nav-item" data-view="runs" href="#runs">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+      <span>Runs</span>
+      <span class="badge">2</span>
+    </a>
+    <a class="nav-item" data-view="clusters" href="#clusters">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg></span>
+      <span>Clusters</span>
+      <span class="badge">4</span>
+    </a>
+    <a class="nav-item" data-view="trace" href="#trace">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span>
+      <span>Trace viewer</span>
+    </a>
+
+    <div class="nav-group">CONFIGURATION</div>
+    <a class="nav-item" data-view="model" href="#model">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+      <span>Behavior model</span>
+    </a>
+    <a class="nav-item" data-view="policies" href="#policies">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6l9-4z"/></svg></span>
+      <span>Policies</span>
+    </a>
+    <a class="nav-item" data-view="ci" href="#ci">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 6h6a3 3 0 0 1 3 3v0M9 18h6a3 3 0 0 0 3-3"/></svg></span>
+      <span>CI/CD integration</span>
+    </a>
+
+    <div class="nav-group">ACCOUNT</div>
+    <a class="nav-item" href="#" onclick="event.preventDefault()">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span>Team</span>
+    </a>
+    <a class="nav-item" href="#" onclick="event.preventDefault()">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .4 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.4 1.7 1.7 0 0 0-1.1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .4-1.9 1.7 1.7 0 0 0-1.6-1.1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.4h0a1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1.1 1.5 1.7 1.7 0 0 0 1.9-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.4 1.9v0a1.7 1.7 0 0 0 1.6 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.1z"/></svg></span>
+      <span>Settings</span>
+    </a>
+
+    <div class="side-foot">
+      <span>v0.1.4-beta</span>
+      <span>● ALL SYSTEMS NORMAL</span>
+    </div>
+  </aside>
+
+  <!-- ===== Main area ===== -->
+  <main class="app-main">
+
+    <!-- ====================== HOME ====================== -->
+    <section class="view active" id="view-home">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Good morning, Maya.</h1>
+          <div class="sub">refund-agent · last explored 4 hours ago · main @ a3f2c9d</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>New run</button>
+          <button class="btn primary" data-go="runs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>Run exploration</button>
+        </div>
+      </div>
+
+      <div class="cards-row">
+        <div class="kpi">
+          <div class="lbl">RISK SCORE</div>
+          <div class="val accent">92<span style="font-size:18px;color:var(--muted);">/100</span></div>
+          <div class="delta up">↑ 18 vs baseline</div>
+        </div>
+        <div class="kpi">
+          <div class="lbl">SCENARIOS · LAST RUN</div>
+          <div class="val">214</div>
+          <div class="delta">8,427 generated · 8,213 deduped</div>
+        </div>
+        <div class="kpi">
+          <div class="lbl">CRITICAL CLUSTERS</div>
+          <div class="val accent">2</div>
+          <div class="delta up">2 new since last merge</div>
+        </div>
+        <div class="kpi">
+          <div class="lbl">PR GATE</div>
+          <div class="val ok">PASS</div>
+          <div class="delta down">38/38 scenarios green on main</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Active failure clusters</h3>
+          <div class="tabs">
+            <button class="tab active">All (4)</button>
+            <button class="tab">Critical (2)</button>
+            <button class="tab">New</button>
+          </div>
+          <div class="meta"><a href="#clusters" data-go="clusters" style="color:var(--accent);">View all →</a></div>
+        </div>
+        <div>
+          <div class="cluster-row" data-go="cluster">
+            <div class="cid">#C-001</div>
+            <div>
+              <div class="ctitle">Duplicate refund created</div>
+              <div class="csub">22 scenarios · refund · timeout-after-success</div>
+            </div>
+            <div><span class="pill fail"><span class="dot"></span>CRITICAL</span></div>
+            <div class="ccount crit">22</div>
+          </div>
+          <div class="cluster-row" data-go="cluster">
+            <div class="cid">#C-002</div>
+            <div>
+              <div class="ctitle">Refunded the wrong customer</div>
+              <div class="csub">13 scenarios · identity · email collision</div>
+            </div>
+            <div><span class="pill fail"><span class="dot"></span>CRITICAL</span></div>
+            <div class="ccount crit">13</div>
+          </div>
+          <div class="cluster-row" data-go="cluster">
+            <div class="cid">#C-003</div>
+            <div>
+              <div class="ctitle">Internal policy_id leaked to external Slack</div>
+              <div class="csub">8 scenarios · prompt · PII</div>
+            </div>
+            <div><span class="pill warn"><span class="dot"></span>HIGH</span></div>
+            <div class="ccount">8</div>
+          </div>
+          <div class="cluster-row" data-go="cluster">
+            <div class="cid">#C-004</div>
+            <div>
+              <div class="ctitle">Large refund processed without approval</div>
+              <div class="csub">3 scenarios · policy · threshold</div>
+            </div>
+            <div><span class="pill warn"><span class="dot"></span>HIGH</span></div>
+            <div class="ccount">3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cards-row" style="grid-template-columns: 1.6fr 1fr;">
+        <div class="panel" style="margin: 0;">
+          <div class="panel-head">
+            <h3>Recent runs</h3>
+            <div class="meta"><a href="#runs" data-go="runs" style="color:var(--accent);">All runs →</a></div>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Run</th><th>Branch</th><th>Scenarios</th><th>Risk</th><th>Status</th><th class="mono">When</th></tr></thead>
+            <tbody>
+              <tr data-go="cluster"><td><span class="id">R-1842</span></td><td class="mono">main</td><td>214</td><td><span style="color:var(--accent);font-weight:500;">92</span></td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td><td class="mono">4h ago</td></tr>
+              <tr data-go="cluster"><td><span class="id">R-1841</span></td><td class="mono">fix/idempotency</td><td>38</td><td><span style="color:var(--ok);font-weight:500;">12</span></td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">5h ago</td></tr>
+              <tr data-go="cluster"><td><span class="id">R-1840</span></td><td class="mono">main</td><td>214</td><td>18</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">yesterday</td></tr>
+              <tr data-go="cluster"><td><span class="id">R-1839</span></td><td class="mono">feat/prompt-v14</td><td>214</td><td><span style="color:var(--accent);font-weight:500;">78</span></td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td><td class="mono">2d ago</td></tr>
+              <tr><td><span class="id">R-1838</span></td><td class="mono">main</td><td>214</td><td>16</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">3d ago</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel" style="margin: 0;">
+          <div class="panel-head"><h3>Risk score</h3><div class="meta">last 14 days</div></div>
+          <div class="panel-body">
+            <div class="gauge">
+              <svg class="gauge-svg" viewBox="0 0 130 130">
+                <circle class="track" cx="65" cy="65" r="52"/>
+                <circle class="arc" id="gauge-arc" cx="65" cy="65" r="52" pathLength="100" stroke-dasharray="0 100"/>
+                <text x="65" y="60" text-anchor="middle" font-size="34" letter-spacing="-2">92</text>
+                <text x="65" y="80" text-anchor="middle" font-family="Geist Mono, monospace" font-size="9" fill="currentColor" style="opacity:.6">RISK</text>
+              </svg>
+              <div class="gauge-meta">
+                <div class="lbl">CATEGORY</div>
+                <div style="color:var(--accent);font-weight:500;font-size:14px;font-family:var(--sans);letter-spacing:-.02em;margin-top:2px;">CRITICAL</div>
+                <div class="lbl" style="margin-top:14px;">DELTA vs baseline (R-1840)</div>
+                <div class="delta">↑ 74 points · 2 new clusters</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== RUNS ====================== -->
+    <section class="view" id="view-runs">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Runs</h1>
+          <div class="sub">All exploration runs across branches · last 30 days</div>
+        </div>
+        <div class="view-actions">
+          <select class="select-mini"><option>All branches</option><option>main</option><option>fix/idempotency</option></select>
+          <select class="select-mini"><option>All statuses</option><option>Pass</option><option>Fail</option></select>
+          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>New run</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <table class="tbl">
+          <thead><tr><th>Run</th><th>Trigger</th><th>Branch</th><th>Commit</th><th>Scenarios</th><th>Pass / Fail</th><th>Risk</th><th>Status</th><th>Duration</th><th class="mono">When</th></tr></thead>
+          <tbody>
+            <tr data-go="cluster"><td><span class="id">R-1842</span></td><td>manual</td><td class="mono">main</td><td class="mono">a3f2c9d</td><td>214</td><td><span style="color:var(--ok)">168</span> / <span style="color:var(--accent)">46</span></td><td><strong style="color:var(--accent)">92</strong></td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td><td class="mono">11m 04s</td><td class="mono">4h ago</td></tr>
+            <tr data-go="cluster"><td><span class="id">R-1841</span></td><td>PR #142</td><td class="mono">fix/idempotency</td><td class="mono">7b1ef02</td><td>38</td><td><span style="color:var(--ok)">38</span> / 0</td><td><strong style="color:var(--ok)">12</strong></td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">1m 47s</td><td class="mono">5h ago</td></tr>
+            <tr data-go="cluster"><td><span class="id">R-1840</span></td><td>nightly</td><td class="mono">main</td><td class="mono">9c0a8e3</td><td>214</td><td><span style="color:var(--ok)">211</span> / <span style="color:var(--accent)">3</span></td><td>18</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">11m 12s</td><td class="mono">yesterday</td></tr>
+            <tr data-go="cluster"><td><span class="id">R-1839</span></td><td>PR #138</td><td class="mono">feat/prompt-v14</td><td class="mono">af34bb1</td><td>214</td><td><span style="color:var(--ok)">178</span> / <span style="color:var(--accent)">36</span></td><td><strong style="color:var(--accent)">78</strong></td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td><td class="mono">11m 21s</td><td class="mono">2d ago</td></tr>
+            <tr><td><span class="id">R-1838</span></td><td>nightly</td><td class="mono">main</td><td class="mono">d2cf701</td><td>214</td><td><span style="color:var(--ok)">212</span> / 2</td><td>16</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">10m 58s</td><td class="mono">3d ago</td></tr>
+            <tr><td><span class="id">R-1837</span></td><td>PR #135</td><td class="mono">refactor/policy-yaml</td><td class="mono">b4029ad</td><td>38</td><td><span style="color:var(--ok)">37</span> / 1</td><td>24</td><td><span class="pill warn"><span class="dot"></span>WARN</span></td><td class="mono">1m 51s</td><td class="mono">3d ago</td></tr>
+            <tr><td><span class="id">R-1836</span></td><td>nightly</td><td class="mono">main</td><td class="mono">f9a31c8</td><td>214</td><td><span style="color:var(--ok)">214</span> / 0</td><td>8</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">11m 03s</td><td class="mono">4d ago</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====================== CLUSTERS ====================== -->
+    <section class="view" id="view-clusters">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Clusters</h1>
+          <div class="sub">Open · run R-1842 · 4 clusters · 46 scenarios</div>
+        </div>
+        <div class="view-actions">
+          <select class="select-mini"><option>All severities</option><option>Critical</option><option>High</option><option>Medium</option></select>
+          <select class="select-mini"><option>Open</option><option>Suppressed</option><option>Fixed</option></select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="cluster-row" data-go="cluster">
+          <div class="cid">#C-001</div>
+          <div>
+            <div class="ctitle">Duplicate refund created</div>
+            <div class="csub">sig:a91f · 22 scenarios · refund + timeout_after_success · first seen R-1842</div>
+          </div>
+          <div><span class="pill fail"><span class="dot"></span>CRITICAL</span></div>
+          <div class="ccount crit">22</div>
+        </div>
+        <div class="cluster-row" data-go="cluster">
+          <div class="cid">#C-002</div>
+          <div>
+            <div class="ctitle">Refunded the wrong customer</div>
+            <div class="csub">sig:b372 · 13 scenarios · identity + email collision · first seen R-1842</div>
+          </div>
+          <div><span class="pill fail"><span class="dot"></span>CRITICAL</span></div>
+          <div class="ccount crit">13</div>
+        </div>
+        <div class="cluster-row" data-go="cluster">
+          <div class="cid">#C-003</div>
+          <div>
+            <div class="ctitle">Internal policy_id leaked to external Slack</div>
+            <div class="csub">sig:c901 · 8 scenarios · prompt + PII · first seen R-1839</div>
+          </div>
+          <div><span class="pill warn"><span class="dot"></span>HIGH</span></div>
+          <div class="ccount">8</div>
+        </div>
+        <div class="cluster-row" data-go="cluster">
+          <div class="cid">#C-004</div>
+          <div>
+            <div class="ctitle">Large refund processed without approval</div>
+            <div class="csub">sig:d144 · 3 scenarios · policy + threshold · first seen R-1842</div>
+          </div>
+          <div><span class="pill warn"><span class="dot"></span>HIGH</span></div>
+          <div class="ccount">3</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== CLUSTER DETAIL ====================== -->
+    <section class="view" id="view-cluster">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>
+            <span class="pill fail" style="vertical-align:middle;margin-right:10px;"><span class="dot"></span>CRITICAL</span>
+            Duplicate refund created
+          </h1>
+          <div class="sub">#C-001 · signature a91f · 22 scenarios · run R-1842 · first seen 4 hours ago</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Share</button>
+          <button class="btn">Suppress</button>
+          <button class="btn primary" data-go="trace">View trace →</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Suspected root causes · ranked</h3>
+          <div class="meta">Bayesian posterior over the cluster's 22 traces · controlling for selection bias</div>
+        </div>
+        <div class="panel-body">
+
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--line);">
+            <div>
+              <div style="font-family:var(--sans);font-size:32px;font-weight:500;color:var(--accent);letter-spacing:-.03em;">87%</div>
+              <div style="height:4px;background:var(--bg-3);border-radius:100px;overflow:hidden;margin-top:6px;"><div style="height:100%;width:87%;background:var(--accent);"></div></div>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:500;letter-spacing:-.015em;">No idempotency key on POST /refunds after timeout</div>
+              <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.7;letter-spacing:-.005em;">
+                <strong style="color:var(--ink)">EVIDENCE</strong> · 22/22 runs · stripe_client.py:84 missing Idempotency-Key header<br/>
+                <strong style="color:var(--ink)">FIX HINT</strong> · derive key from payment.id, attach to retry context<br/>
+                <a href="#trace" data-go="trace" style="color:var(--accent);">View example trace →</a>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--line);">
+            <div>
+              <div style="font-family:var(--sans);font-size:32px;font-weight:500;color:var(--accent);letter-spacing:-.03em;">71%</div>
+              <div style="height:4px;background:var(--bg-3);border-radius:100px;overflow:hidden;margin-top:6px;"><div style="height:100%;width:71%;background:var(--accent);"></div></div>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:500;letter-spacing:-.015em;">Agent does not GET /refunds before POST on retry</div>
+              <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.7;letter-spacing:-.005em;">
+                <strong style="color:var(--ink)">EVIDENCE</strong> · 16/22 runs · policy.py:31 no pre-check in retry branch
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:18px;padding:12px 0;">
+            <div>
+              <div style="font-family:var(--sans);font-size:32px;font-weight:500;color:var(--accent);letter-spacing:-.03em;">42%</div>
+              <div style="height:4px;background:var(--bg-3);border-radius:100px;overflow:hidden;margin-top:6px;"><div style="height:100%;width:42%;background:var(--accent);"></div></div>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:500;letter-spacing:-.015em;">Retry strategy uses fixed-interval backoff, no jitter</div>
+              <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.7;letter-spacing:-.005em;">
+                <strong style="color:var(--ink)">EVIDENCE</strong> · 9/22 runs · retry.py:12 fixed 1s backoff
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Affected scenarios</h3><div class="meta">22 scenarios share signature a91f</div></div>
+        <table class="tbl">
+          <thead><tr><th>Scenario</th><th>Trace</th><th>Failure axis</th><th>Tool calls</th><th>Duration</th><th></th></tr></thead>
+          <tbody>
+            <tr data-go="trace"><td>dup_refund_timeout_after_success</td><td class="mono"><span class="id">T-9821</span></td><td><span class="pill">stripe · timeout_after_success</span></td><td>14</td><td class="mono">2.3s</td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td></tr>
+            <tr data-go="trace"><td>dup_refund_high_latency_500ms</td><td class="mono"><span class="id">T-9822</span></td><td><span class="pill">stripe · 5s_latency</span></td><td>16</td><td class="mono">7.1s</td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td></tr>
+            <tr data-go="trace"><td>dup_refund_429_then_200</td><td class="mono"><span class="id">T-9823</span></td><td><span class="pill">stripe · rate_limit</span></td><td>17</td><td class="mono">3.4s</td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td></tr>
+            <tr><td>dup_refund_partial_state_500</td><td class="mono"><span class="id">T-9824</span></td><td><span class="pill">stripe · server_error</span></td><td>13</td><td class="mono">2.1s</td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td></tr>
+            <tr><td>dup_refund_idempotency_missing_polite</td><td class="mono"><span class="id">T-9825</span></td><td><span class="pill">phrasing · polite</span></td><td>11</td><td class="mono">1.9s</td><td><span class="pill fail"><span class="dot"></span>FAIL</span></td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);font-family:var(--mono);font-size:11.5px;">+ 17 more scenarios</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====================== TRACE VIEWER ====================== -->
+    <section class="view" id="view-trace">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Trace <span style="font-family:var(--mono);font-size:18px;color:var(--muted);">T-9821</span></h1>
+          <div class="sub">scenario: dup_refund_timeout_after_success · cluster #C-001 · duration 2.3s · 14 tool calls</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn">Download JSON</button>
+          <button class="btn">Open in IDE</button>
+          <button class="btn primary" data-go="cluster">← Back to cluster</button>
+        </div>
+      </div>
+
+      <div class="trace-shell">
+        <div class="trace-stream">
+          <div class="trace-timeline">
+            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:-.005em;">
+              <span>TIMELINE · 14 events</span>
+              <span>2,304ms</span>
+            </div>
+            <div class="axis"></div>
+            <div class="tick" style="left:18px;" data-t="0ms"></div>
+            <div class="tick" style="left:25%;" data-t="500ms"></div>
+            <div class="tick" style="left:50%;" data-t="1.0s"></div>
+            <div class="tick" style="left:75%;" data-t="1.5s"></div>
+            <div class="tick" style="right:18px;" data-t="2.3s"></div>
+            <span class="ev api" style="left:5%;"></span>
+            <span class="ev api" style="left:10%;"></span>
+            <span class="ev state" style="left:14%;"></span>
+            <span class="ev api" style="left:22%;"></span>
+            <span class="ev state" style="left:28%;"></span>
+            <span class="ev api" style="left:35%;"></span>
+            <span class="ev fail" style="left:48%;"></span>
+            <span class="ev api" style="left:60%;"></span>
+            <span class="ev state" style="left:65%;"></span>
+            <span class="ev api" style="left:72%;"></span>
+            <span class="ev api" style="left:82%;"></span>
+            <span class="ev state" style="left:88%;"></span>
+            <span class="ev api" style="left:93%;"></span>
+            <span class="ev api" style="left:98%;"></span>
+          </div>
+
+          <div class="trace-events">
+            <div class="trace-event"><div class="t">+0ms</div><div class="body">
+              <div class="h"><span class="meth get">GET</span><span class="ep">/api/conversations.history</span><span class="svc">slack-clone</span></div>
+              <div class="meta">200 · 18ms · 1 message · channel=C_SUPPORT</div>
+            </div></div>
+            <div class="trace-event"><div class="t">+24ms</div><div class="body">
+              <div class="h"><span class="meth get">GET</span><span class="ep">/v1/customers/search</span><span class="svc">stripe-clone</span></div>
+              <div class="meta">200 · 31ms · 1 result · cus_123</div>
+            </div></div>
+            <div class="trace-event"><div class="t">+62ms</div><div class="body">
+              <div class="h"><span class="meth get">GET</span><span class="ep">/v1/payment_intents</span><span class="svc">stripe-clone</span></div>
+              <div class="meta">200 · 24ms · 2 payments · pay_1, pay_2</div>
+            </div></div>
+            <div class="trace-event selected"><div class="t">+96ms</div><div class="body">
+              <div class="h"><span class="meth post">POST</span><span class="ep">/v1/refunds</span><span class="svc">stripe-clone</span><span class="pill fail" style="font-size:10px;"><span class="dot"></span>FAULT</span></div>
+              <div class="meta">timeout_after_success · state mutated · client raised ReadTimeout · 5,001ms</div>
+            </div></div>
+            <div class="trace-event"><div class="t">+1,200ms</div><div class="body">
+              <div class="h"><span class="meth post">POST</span><span class="ep">/v1/refunds</span><span class="svc">stripe-clone</span><span class="pill warn" style="font-size:10px;">RETRY</span></div>
+              <div class="meta">200 · 38ms · created re_4827 · <strong style="color:var(--accent);">SECOND REFUND for pay_2</strong></div>
+            </div></div>
+            <div class="trace-event"><div class="t">+1,290ms</div><div class="body">
+              <div class="h"><span class="meth post">POST</span><span class="ep">/issues/LIN-44</span><span class="svc">linear-clone</span></div>
+              <div class="meta">200 · 14ms · status: open → resolved</div>
+            </div></div>
+            <div class="trace-event"><div class="t">+1,340ms</div><div class="body">
+              <div class="h"><span class="meth post">POST</span><span class="ep">/api/chat.postMessage</span><span class="svc">slack-clone</span></div>
+              <div class="meta">200 · 22ms · "Hi Alex, your refund has been processed."</div>
+            </div></div>
+          </div>
+        </div>
+
+        <aside class="trace-side">
+          <div class="state-card">
+            <h4>stripe-clone <span class="port">:4002</span></h4>
+            <div class="state-row"><span class="k">customers</span><span class="v">1</span></div>
+            <div class="state-row"><span class="k">payments</span><span class="v">2 (succeeded)</span></div>
+            <div class="state-row"><span class="k">refunds</span><span class="v delta">2 ← was 0</span></div>
+            <div class="state-row"><span class="k">fault</span><span class="v">timeout_after_success · 1×</span></div>
+          </div>
+          <div class="state-card">
+            <h4>slack-clone <span class="port">:4001</span></h4>
+            <div class="state-row"><span class="k">channels</span><span class="v">1</span></div>
+            <div class="state-row"><span class="k">messages</span><span class="v delta">3 ← was 2</span></div>
+            <div class="state-row"><span class="k">last_msg</span><span class="v">bot reply</span></div>
+          </div>
+          <div class="state-card">
+            <h4>linear-clone <span class="port">:4003</span></h4>
+            <div class="state-row"><span class="k">issues</span><span class="v">1</span></div>
+            <div class="state-row"><span class="k">LIN-44</span><span class="v delta">resolved ← was open</span></div>
+            <div class="state-row"><span class="k">comments</span><span class="v">0</span></div>
+          </div>
+          <div class="state-card" style="background:color-mix(in oklab, var(--accent) 8%, var(--bg-2)); border-color:var(--accent);">
+            <h4 style="color:var(--accent)">Assertion failed</h4>
+            <div style="font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.6;letter-spacing:-.005em;">
+              <strong style="color:var(--accent)">no_duplicate_refund</strong><br/>
+              expected · refunds.payment_id unique<br/>
+              actual · pay_2 appears 2 times
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ====================== BEHAVIOR MODEL ====================== -->
+    <section class="view" id="view-model">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Behavior model</h1>
+          <div class="sub">extracted 2 days ago · confidence 0.94 · 4 intents · 3 tools · 5 rules</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn">Re-extract</button>
+          <button class="btn">Discard changes</button>
+          <button class="btn primary">Save &amp; re-run</button>
+        </div>
+      </div>
+
+      <div class="model-shell">
+        <div class="yaml-editor">
+          <div class="yaml-bar">
+            <span class="dot"></span>
+            <span class="file">agentguard/model.yml</span>
+            <span style="margin-left:auto;">62 lines · YAML · ✓ valid</span>
+          </div>
+          <div class="yaml-body">
+<div class="ln"><span class="lnum">1</span><span><span class="com"># refund-agent · extracted from docs/refund-agent.md</span></span></div>
+<div class="ln"><span class="lnum">2</span><span><span class="key">version:</span> <span class="num">1</span></span></div>
+<div class="ln"><span class="lnum">3</span><span><span class="key">name:</span> <span class="str">refund-agent</span></span></div>
+<div class="ln"><span class="lnum">4</span><span></span></div>
+<div class="ln"><span class="lnum">5</span><span><span class="key">intents:</span></span></div>
+<div class="ln"><span class="lnum">6</span><span>  - <span class="key">name:</span> <span class="str">process_refund</span></span></div>
+<div class="ln"><span class="lnum">7</span><span>    <span class="key">trigger:</span> <span class="str">"customer requests a refund in Slack"</span></span></div>
+<div class="ln"><span class="lnum">8</span><span>    <span class="key">confidence:</span> <span class="num">0.97</span></span></div>
+<div class="ln"><span class="lnum">9</span><span>  - <span class="key">name:</span> <span class="str">escalate</span></span></div>
+<div class="ln"><span class="lnum">10</span><span>    <span class="key">confidence:</span> <span class="num">0.91</span></span></div>
+<div class="ln"><span class="lnum">11</span><span></span></div>
+<div class="ln"><span class="lnum">12</span><span><span class="key">tools:</span></span></div>
+<div class="ln"><span class="lnum">13</span><span>  - <span class="str">slack</span></span></div>
+<div class="ln"><span class="lnum">14</span><span>  - <span class="str">stripe</span></span></div>
+<div class="ln"><span class="lnum">15</span><span>  - <span class="str">linear</span></span></div>
+<div class="ln"><span class="lnum">16</span><span></span></div>
+<div class="ln"><span class="lnum">17</span><span><span class="key">rules:</span></span></div>
+<div class="ln"><span class="lnum">18</span><span>  - <span class="key">id:</span> <span class="str">no_duplicate_refund</span></span></div>
+<div class="ln"><span class="lnum">19</span><span>    <span class="key">severity:</span> <span class="str">critical</span></span></div>
+<div class="ln"><span class="lnum">20</span><span>    <span class="key">rule:</span> <span class="str">"refunds[*].payment_id must be unique"</span></span></div>
+<div class="ln"><span class="lnum">21</span><span></span></div>
+<div class="ln"><span class="lnum">22</span><span>  - <span class="key">id:</span> <span class="str">approval_above_threshold</span></span></div>
+<div class="ln"><span class="lnum">23</span><span>    <span class="key">severity:</span> <span class="str">high</span></span></div>
+<div class="ln"><span class="lnum">24</span><span>    <span class="key">threshold_cents:</span> <span class="num">50000</span></span></div>
+<div class="ln"><span class="lnum">25</span><span></span></div>
+<div class="ln"><span class="lnum">26</span><span>  - <span class="key">id:</span> <span class="str">tenant_isolation</span></span></div>
+<div class="ln"><span class="lnum">27</span><span>    <span class="key">severity:</span> <span class="str">critical</span></span></div>
+<div class="ln"><span class="lnum">28</span><span>    <span class="key">confidence:</span> <span class="num">0.78</span>  <span class="com"># ← review</span></span></div>
+<div class="ln"><span class="lnum">29</span><span></span></div>
+<div class="ln"><span class="lnum">30</span><span><span class="key">tenancy:</span></span></div>
+<div class="ln"><span class="lnum">31</span><span>  <span class="key">boundary:</span> <span class="str">customer.tenant_id</span></span></div>
+          </div>
+        </div>
+
+        <div class="model-graph">
+          <div class="gbar">
+            <span>Visual graph · auto-layout</span>
+            <span style="margin-left:auto;font-family:var(--mono);color:var(--muted);">6 nodes · 6 edges</span>
+          </div>
+          <div class="gbody" id="model-graph-body">
+            <svg viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;">
+              <path d="M 300 60 Q 240 130 180 190" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+              <path d="M 300 60 Q 360 130 420 190" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+              <path d="M 180 190 Q 180 260 180 320" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+              <path d="M 420 190 Q 420 260 420 320" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+              <path d="M 180 190 Q 300 220 420 190" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+              <path d="M 180 320 Q 300 380 420 320" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+            </svg>
+            <div style="position:absolute;left:50%;top:60px;transform:translate(-50%,-50%);padding:8px 14px;background:var(--bg-3);border:1px solid var(--ink);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">CUSTOMER</div>
+            <div style="position:absolute;left:30%;top:190px;transform:translate(-50%,-50%);padding:8px 14px;background:var(--bg-3);border:1px solid var(--ink);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">PAYMENT</div>
+            <div style="position:absolute;left:70%;top:190px;transform:translate(-50%,-50%);padding:8px 14px;background:var(--bg-3);border:1px solid var(--ink);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">TICKET</div>
+            <div style="position:absolute;left:30%;top:320px;transform:translate(-50%,-50%);padding:8px 14px;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">STRIPE</div>
+            <div style="position:absolute;left:70%;top:320px;transform:translate(-50%,-50%);padding:8px 14px;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">LINEAR</div>
+            <div style="position:absolute;left:50%;top:380px;transform:translate(-50%,-50%);padding:8px 14px;background:color-mix(in oklab, var(--accent) 16%, var(--bg));color:var(--accent);border:1px solid var(--accent);border-radius:100px;font-family:var(--mono);font-size:11.5px;font-weight:500;">RULE · approval &gt; $500</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== POLICIES ====================== -->
+    <section class="view" id="view-policies">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>Policies</h1>
+          <div class="sub">5 active rules · 1 needs review · last edited 2 days ago</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn">Import pack</button>
+          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>New policy</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <table class="tbl">
+          <thead><tr><th>Policy</th><th>Severity</th><th>Service</th><th>Violations · last 7 days</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><strong>no_duplicate_refund</strong><br/><span style="font-family:var(--mono);font-size:11px;color:var(--muted);">refunds[*].payment_id unique</span></td><td><span class="pill fail"><span class="dot"></span>CRITICAL</span></td><td class="mono">stripe</td><td>22</td><td><span class="pill pass"><span class="dot"></span>ENFORCED</span></td><td><span class="kbd">edit</span></td></tr>
+            <tr><td><strong>no_pii_in_external_slack</strong><br/><span style="font-family:var(--mono);font-size:11px;color:var(--muted);">external channels must not contain sensitive info</span></td><td><span class="pill fail"><span class="dot"></span>CRITICAL</span></td><td class="mono">slack</td><td>8</td><td><span class="pill pass"><span class="dot"></span>ENFORCED</span></td><td><span class="kbd">edit</span></td></tr>
+            <tr><td><strong>approval_above_threshold</strong><br/><span style="font-family:var(--mono);font-size:11px;color:var(--muted);">refunds &gt; $500 require approval</span></td><td><span class="pill warn"><span class="dot"></span>HIGH</span></td><td class="mono">stripe</td><td>3</td><td><span class="pill pass"><span class="dot"></span>ENFORCED</span></td><td><span class="kbd">edit</span></td></tr>
+            <tr><td><strong>tenant_isolation</strong><br/><span style="font-family:var(--mono);font-size:11px;color:var(--muted);">cross-tenant access forbidden</span></td><td><span class="pill fail"><span class="dot"></span>CRITICAL</span></td><td class="mono">all</td><td>0</td><td><span class="pill warn"><span class="dot"></span>REVIEW · 0.78 confidence</span></td><td><span class="kbd">edit</span></td></tr>
+            <tr><td><strong>must_update_ticket_after_refund</strong><br/><span style="font-family:var(--mono);font-size:11px;color:var(--muted);">linear ticket status must move to resolved</span></td><td><span class="pill"><span class="dot"></span>MEDIUM</span></td><td class="mono">linear</td><td>0</td><td><span class="pill pass"><span class="dot"></span>ENFORCED</span></td><td><span class="kbd">edit</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====================== CI/CD INTEGRATION ====================== -->
+    <section class="view" id="view-ci">
+      <div class="view-head">
+        <div class="view-title">
+          <h1>CI/CD integration</h1>
+          <div class="sub">GitHub App connected · auto-runs on every PR to main</div>
+        </div>
+        <div class="view-actions">
+          <button class="btn">View workflow.yml</button>
+          <button class="btn">Disconnect</button>
+        </div>
+      </div>
+
+      <div class="ci-grid">
+        <div class="panel" style="margin:0;">
+          <div class="panel-head"><h3>GitHub</h3><span class="pill pass"><span class="dot"></span>CONNECTED</span></div>
+          <div>
+            <div class="config-row">
+              <div>
+                <div class="h">Repository</div>
+                <div class="d">Pritam28877 / refund-agent</div>
+              </div>
+              <div class="ctl"><button class="btn">Change</button></div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">PR mode</div>
+                <div class="d">Curated subset · runs on every PR · target ≤ 3min</div>
+              </div>
+              <div class="ctl">
+                <select class="select-mini"><option>38 scenarios</option><option>100 scenarios</option><option>All distinct</option></select>
+                <div class="toggle on"></div>
+              </div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">Nightly mode</div>
+                <div class="d">Full generated suite · 03:00 UTC · opens issue on new cluster</div>
+              </div>
+              <div class="ctl"><div class="toggle on"></div></div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">Block merge on severity</div>
+                <div class="d">Critical and High clusters fail the check</div>
+              </div>
+              <div class="ctl">
+                <select class="select-mini"><option>Critical only</option><option>Critical &amp; High</option><option>Critical, High &amp; Medium</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin:0;">
+          <div class="panel-head"><h3>Notifications</h3></div>
+          <div>
+            <div class="config-row">
+              <div>
+                <div class="h">Slack</div>
+                <div class="d">#agentguard-alerts · post on new critical cluster</div>
+              </div>
+              <div class="ctl"><div class="toggle on"></div></div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">Email digest</div>
+                <div class="d">Weekly summary to maya@…</div>
+              </div>
+              <div class="ctl"><div class="toggle"></div></div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">PR comments</div>
+                <div class="d">Inline summary on PR conversation</div>
+              </div>
+              <div class="ctl"><div class="toggle on"></div></div>
+            </div>
+            <div class="config-row">
+              <div>
+                <div class="h">Webhook</div>
+                <div class="d">POST run results to a URL of your choice</div>
+              </div>
+              <div class="ctl"><button class="btn">Configure</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Recent PR checks</h3></div>
+        <table class="tbl">
+          <thead><tr><th>PR</th><th>Branch</th><th>Author</th><th>Check</th><th>Status</th><th class="mono">When</th></tr></thead>
+          <tbody>
+            <tr><td>#142 <strong>prompt: tighten system message</strong></td><td class="mono">feat/prompt-v14</td><td>@teammate</td><td>agentguard / pr-mode</td><td><span class="pill fail"><span class="dot"></span>FAIL · 9 new critical</span></td><td class="mono">12m ago</td></tr>
+            <tr><td>#141 <strong>fix: idempotency key</strong></td><td class="mono">fix/idempotency</td><td>@maya</td><td>agentguard / pr-mode</td><td><span class="pill pass"><span class="dot"></span>PASS</span></td><td class="mono">5h ago</td></tr>
+            <tr><td>#140 <strong>refactor: policy yaml</strong></td><td class="mono">refactor/policy-yaml</td><td>@maya</td><td>agentguard / pr-mode</td><td><span class="pill warn"><span class="dot"></span>WARN · 1 new medium</span></td><td class="mono">3d ago</td></tr>
+            <tr><td>#139 <strong>docs: update README</strong></td><td class="mono">docs/readme</td><td>@maya</td><td>agentguard / skipped</td><td><span class="pill"><span class="dot"></span>SKIPPED · no agent files</span></td><td class="mono">4d ago</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="script.js"></script>
+<script src="product.js"></script>
+</body>
+</html>
