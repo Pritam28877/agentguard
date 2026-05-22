@@ -1,289 +1,309 @@
 # AgentGuard
 
-**A Rubik's-cube fuzzer for AI agents. Reads your product spec, generates every realistic user path, runs them against stateful clones of your tools, clusters failures, and tells you the most likely root cause — before your agent touches production.**
+**Turn agent production incidents into permanent CI gates. Replay the trace, mutate it across the failure modes that actually break agents in prod (retry, duplicate webhook, race, identity collision, threshold edge), check your invariants, block the regression PR.**
 
 ---
 
 ## 1. The Problem
 
-AI agents in production do not fail like normal software. They fail because:
+AI agents fail in production for reasons normal software does not:
 
-- A user phrased a request differently than expected.
-- A tool returned data in an order the prompt did not anticipate.
-- An API timed out *after* mutating state.
+- A user phrased a request differently than the prompt anticipated.
+- A tool timed out *after* mutating state.
+- An agent retried without an idempotency key.
 - Two customers shared an email.
-- A webhook arrived twice.
-- The agent retried without an idempotency key.
-- The agent took a 7-step path the developer never imagined.
+- A webhook arrived twice or out of order.
+- A subagent's tool error was swallowed and the orchestrator marched on.
 
-No existing tool tests this. Prompt-eval tools (LangSmith, Braintrust, Patronus) judge text outputs. CI runners (GitHub Actions) only execute tests you already wrote. Nobody simulates **stateful tool side effects across every realistic workflow permutation** — which is where real agents break.
+When this happens, engineers get paged at 2 a.m. They debug for hours. They patch the prompt or add one defensive check. The bug stays one mutation away from happening again. There is no test that pins the failure in place.
 
-AgentGuard does exactly that.
+Existing tools do not solve this:
+
+- **Prompt-eval tools** (LangSmith, Braintrust, Patronus) judge text. They do not simulate state.
+- **CI runners** (GitHub Actions + pytest) only execute tests engineers already wrote, against mocks they already designed.
+- **APM / tracing** (Arize, Datadog) tell you what happened. They do not replay it under variation.
+
+AgentGuard sits exactly where the gap is: **stateful replay of real production traces, mutated across the small set of system-level failure modes that actually break agents.**
 
 ---
 
-## 2. What AgentGuard Does (Five Stages)
+## 2. What AgentGuard Does (Four Stages)
 
-### Stage 1 — Comprehension
+### Stage 1 — Ingest
 
-Input: project BRD, PRD, README, or a short product description. Optional: agent source, tool schemas, OpenAPI specs.
+Input: a recorded trace of the agent (OpenTelemetry spans, or a JSON dump from a thin SDK shim). PII redacted on ingest by a deterministic, auditable rule set the user controls.
 
-AgentGuard extracts:
+Output: a normalized `Trace` — ordered events with tool calls, args, results, and (if the agent runs subagents) a spawn DAG. Traces carry a `tenant_id` (auto-detected or user-tagged on ingest). Invariant evaluation is scoped per tenant; cross-tenant invariants like `tenant_isolation` see the full trace.
 
-- Domain entities (customer, payment, ticket, channel, order)
-- Tools the agent uses (Slack, Stripe, Linear, internal APIs)
-- User intents (refund, escalate, resolve, notify, query)
-- Business rules (no duplicate refund, no PII in external channels, approval thresholds, tenant isolation)
-- Tenancy and permission model
+**Cold start (no production traces yet).** New agent projects have no traces to ingest. AgentGuard ships `agentguard record --local`, which captures traces while the developer runs the agent against staging or a scratch tenant. Three or four local sessions are enough to seed a useful trace corpus on day one. Existing customers with OTel already flowing skip this step entirely.
 
-Output: a structured **Agent Behavior Model** (ABM) — the spec of what the agent is *supposed* to do, in machine-readable form.
+### Stage 2 — Invariants
 
-### Stage 2 — Scenario Synthesis (the Rubik's Cube)
+The user writes 5–20 invariants in YAML or Python. These are the rules the agent must not break. Example:
 
-For each user intent, AgentGuard explores a multi-dimensional state space:
+```yaml
+- name: no_duplicate_refund_per_payment_intent
+  scope: stripe
+  rule: "for each payment_intent, POST /refunds occurs at most once"
 
-| Axis | Variants |
+- name: no_pii_to_external_channel
+  scope: slack
+  rule: "messages to channels where channel.is_external == true contain no field from customer.pii"
+
+- name: tenant_isolation
+  scope: cross_tool
+  rule: "all reads and writes within a run share the same tenant_id"
+
+- name: subagent_no_handoff_loop
+  scope: orchestrator
+  rule: "no subagent receives the same task signature more than 2 times in a single run"
+```
+
+Invariants are first-class. They are what the customer is actually buying — *codified, executable agreement with their agent's spec.*
+
+Invariants whose `scope` references a tool not present in a given trace are **skipped, not failed**, and reported as "not applicable." A `strict` flag in `agentguard.yaml` flips this to error.
+
+### Stage 3 — Targeted Mutation + Replay
+
+AgentGuard mutates each ingested trace along a fixed, honest set of axes — the failure modes that 4 different industry sources agree actually break production agents:
+
+| Axis | What it does |
 |---|---|
-| Input phrasing | direct, vague, multi-intent, contradictory, polite, hostile, prompt-injected |
-| Data state | clean, missing field, duplicate record, stale read, cross-tenant, archived |
-| Identity | exact match, similar name, two customers same email, deleted user |
-| Tool failure | none, timeout, timeout_after_success, 429, 500, malformed, stale, out-of-order webhook |
-| Sequence | normal, race, retry storm, duplicate webhook, delayed event |
-| Scale | tiny, normal, near-threshold, above-threshold |
-| Policy edge | well within, exactly at boundary, just over, repeated near-misses |
+| Retry / duplicate side effect | Re-fires a mutating tool call after a synthetic timeout |
+| Webhook reorder / duplicate | Reorders, duplicates, or delays inbound events |
+| Identity collision | Mutates two records to share a key (email, external_id) |
+| Stale read | Returns an older snapshot of state to one tool call |
+| Threshold edge | Sets a numeric field to value-1 / value / value+1 of any rule that mentions a number |
+| Tool failure injection | Timeout, 429, 500, malformed response, on configurable calls |
+| Subagent handoff loop | Re-routes a subagent's result back to itself |
 
-A combinatorial generator picks N axes per scenario and produces variants. A **mutation engine** then does coverage-guided random walks — seeded by failures from prior runs — to surface paths the developer never wrote a test for.
+That is it. Seven axes. Not a Rubik's cube of imagined dimensions — the seven that show up in real postmortems.
 
-Variants are deduplicated by **behavioral signature** (the canonical sequence of tool calls + final state shape) so 10,000 generated scenarios collapse to ~200 distinct behaviors worth running.
+Each mutated trace is replayed against:
 
-### Stage 3 — Execution
+- The customer's real agent code (re-executed locally, with tool responses served from the recorded trace where unmutated and from the mutator where mutated).
+- The customer's real environment variables (no hosted clones — the customer keeps control of secrets and config).
 
-- Spins up stateful clones of every tool the agent uses (Slack, Stripe, Linear for MVP; pluggable for others).
-- Seeds clone state per scenario.
-- Injects clone URLs into the agent's env.
-- Runs the agent.
-- Records every API request, response, mutation, retry, and final state.
-- Parallelizes runs (default: N = CPU cores).
+**Determinism under a non-deterministic agent.** The agent calls an LLM, which is itself non-deterministic. Naive replays would produce CI noise. AgentGuard handles this explicitly:
 
-### Stage 4 — Failure Clustering and Root-Cause Attribution
+- **Unmutated tool calls and unmutated LLM calls** are served from the recorded trace. The agent's orchestration, tool sequencing, and prompt construction are tested deterministically.
+- **Mutated branches** can either replay a recorded LLM response from a sibling trace (free, fast, deterministic) or re-call the LLM live (more coverage, costs tokens). Configurable per mutation axis.
+- **PR mode defaults to recorded-LLM replay**: $0 cost, ≤2 min, deterministic pass/fail. **Nightly mode** may opt into live-LLM on mutated branches for deeper exploration.
 
-This is the differentiator.
+The customer chooses the trade-off in `agentguard.yaml`. Determinism is the default; "live-LLM under mutation" is an opt-in.
 
-When scenarios fail, AgentGuard does **not** just list failures. It:
+### Stage 4 — Report and Gate
 
-1. **Clusters** failures by behavioral signature. 47 failing scenarios with the same broken tool-call pattern = 1 root cause, not 47 bugs.
-2. **Ranks suspected causes** for each cluster with confidence scores derived from trace patterns:
+Each mutated replay either passes all invariants or violates at least one. The report is flat, honest, and clickable:
 
-   ```
-   Cluster #1 — 47 scenarios failed (refund-related)
-   Suspected causes:
-     [87%] Agent did not check existing refunds before creating a new one
-           Evidence: 47/47 runs called POST /refunds with no prior GET /refunds
-     [76%] Agent retries on timeout without an idempotency key
-           Evidence: 31/47 runs sent duplicate POST /refunds after timeout
-     [62%] Agent matches customer by email instead of customer_id
-           Evidence: 18/47 runs refunded the wrong cus_* when emails collided
-   ```
+```
+Invariant violations in this PR:
 
-3. **Links** each hypothesis to specific trace events (clickable in the report).
-4. **Stops there.** It does not auto-fix. The developer reads, decides, fixes.
+[critical] no_duplicate_refund_per_payment_intent
+  Violated in 4 of 12 mutated traces seeded from incident-2024-11-08.
+  Common pattern: POST /refunds re-fired after synthetic timeout_after_success.
+  Trace links: [#1] [#2] [#3] [#4]
 
-This is the part competitors do not have. They tell you *that* the agent failed. AgentGuard tells you *why*, ranked.
+[high] no_pii_to_external_channel
+  Violated in 1 of 12 mutated traces seeded from trace-2025-01-03.
+  Pattern: customer.email leaked into Slack channel where is_external=true after
+  identity-collision mutation merged two customer records.
+  Trace link: [#5]
+```
 
-### Stage 5 — Gate
+No confidence percentages. No LLM-judged root cause. Just: which invariant broke, on which mutation, with a link to the exact trace event. The engineer reads, fixes, re-runs.
 
-Two run modes:
+Optional grouping: identical violation + identical mutation axis collapses into one row. That is the only "clustering" we ship in v1 — and it is deterministic, not LLM-judged.
 
-- **PR mode** (fast, ~2 min): runs a curated subset — the historically failing scenarios + a fresh batch of mutations. Blocks merge on any critical cluster.
-- **Nightly mode** (deep, unlimited): runs the full generated suite. Surfaces new clusters. Auto-promotes a new scenario into the PR set when it produces a new failure cluster.
+### Gate Modes
 
-Both modes ship as a GitHub Action and a CLI.
+- **PR mode** (≤2 min): re-runs the historically violating traces + their mutations. Blocks merge on any new critical violation.
+- **Nightly mode**: runs the full corpus of ingested traces × all mutation axes. Opens an issue if a new invariant violation appears.
+
+Both ship as a GitHub Action and a CLI.
 
 ---
 
-## 3. Why This Beats Every Competitor
+## 3. The Wedge Customer
 
-| Capability | LangSmith / Braintrust | Patronus / Galileo | GitHub Actions + pytest | **AgentGuard** |
+**Support / operations agents** — agents that take customer-facing actions with state side effects. Refunds, ticket updates, escalations, returns, account changes.
+
+Why this wedge:
+
+- The dollar cost of a bug is concrete and immediate (duplicate refund, wrong customer charged, leaked PII).
+- The buyer (engineering manager) has already been paged for this class of bug.
+- The tools involved (Stripe, Slack, Zendesk, Linear, Jira, Salesforce) are stable APIs with mockable behavior.
+- The agents are typically small enough to re-execute cheaply in CI.
+
+Other verticals (reporting/knowledge agents, cybersecurity audit agents, marketing-platform agents) are **not** part of v1. They are evidence the same engine can extend later, not a commitment.
+
+---
+
+## 4. Why This Beats the Honest Alternatives
+
+| Capability | LangSmith / Braintrust | Patronus / Galileo | pytest + manual mocks | **AgentGuard** |
 |---|---|---|---|---|
-| Generates scenarios from spec | No | No | No | **Yes** |
-| Simulates stateful tools | No | No | Manual mocks | **Yes** |
-| Failure injection | No | No | Manual | **Yes** |
-| Permutation/mutation engine | No | No | No | **Yes** |
-| Behavioral failure clustering | No | No | No | **Yes** |
-| Ranked root-cause attribution | No | No | No | **Yes** |
-| Blocks PRs | Add-on | No | Yes | **Yes** |
+| Replays real production traces | Trace-view only | No | No | **Yes** |
+| Mutates traces along system failure axes | No | No | Manual | **Yes** |
+| Invariant DSL with cross-tool scope | No | No | Per-test | **Yes** |
+| Blocks PRs on invariant violation | Add-on | No | Yes | **Yes** |
+| No LLM-judged "root cause" theater | — | — | — | **Yes** |
+| Works without a written spec or BRD | — | — | — | **Yes** |
 
-Competitors stop at "the LLM output had bad vibes." AgentGuard reproduces the *system-level* failure with real state, then explains the cause.
+We do not claim a behavioral-signature clustering moat. We do not claim a universal scenario generator. We claim something narrower and more defensible: **the cleanest path from "the agent broke in prod" to "this regression cannot reach prod again."**
 
 ---
 
-## 4. End-to-End User Story
+## 5. End-to-End User Story
 
-**Maya, backend eng. Owns a refund-support agent that reads Slack, queries Stripe, updates Linear.**
+**Maya, backend eng. Owns a refund-support agent. Got paged Saturday at 2 a.m. Duplicate refund.**
 
-### Day 0 — Install and point it at her docs
+### Monday morning — install
 
 ```
 pip install agentguard
-agentguard analyze --brd ./docs/refund-agent.md --agent ./agents/refund/
+agentguard init
 ```
 
-AgentGuard reads the BRD, sees the agent imports a Stripe SDK and Slack SDK, sees the prompt mentions "refund," "ticket," "customer," "approval over $500." Generates an **Agent Behavior Model**:
+`agentguard init` writes an empty `agentguard.yaml` with example invariants, and an SDK shim (or detects existing OTel) so the agent emits traces.
+
+### Monday — capture the incident
+
+Maya pulls the Saturday trace from her observability tool, runs:
 
 ```
-intents: [process_refund, escalate, decline_refund, request_more_info]
-tools:   [slack, stripe, linear]
-entities: [customer, payment, refund, ticket, channel]
-rules:
-  - no duplicate refund per payment
-  - refunds > $500 need approval
-  - never post PII to external channels
-  - one refund per ticket
-tenancy: customer.tenant_id must equal ticket.tenant_id
+agentguard ingest ./traces/incident-2024-11-08.json --redact-pii
 ```
 
-Maya skims it, edits one line. Commits.
+Trace lands in `.agentguard/traces/`, PII fields replaced by deterministic tokens.
 
-### Day 1 — First exploration
+### Monday — write the invariant
 
-```
-agentguard explore --depth full
-```
+She adds one rule to `agentguard.yaml`:
 
-AgentGuard generates 8,427 variants. Dedupes to 214 distinct behaviors. Runs them. Takes 11 minutes on her laptop.
-
-**Result:**
-- 168 passed
-- 46 failed, grouped into 4 clusters
-
-```
-Cluster #1 — 22 scenarios — CRITICAL
-Symptom: duplicate refund created
-Suspected causes:
-  [89%] No idempotency key on POST /refunds after timeout
-  [71%] Agent does not GET /refunds before POST when retrying
-
-Cluster #2 — 13 scenarios — CRITICAL
-Symptom: refunded wrong customer
-Suspected causes:
-  [82%] Customer disambiguation uses email, not customer_id
-  [58%] Agent picks first match without checking tenant_id
-
-Cluster #3 — 8 scenarios — HIGH
-Symptom: posted internal policy text to external Slack channel
-Suspected causes:
-  [76%] Prompt template leaks `system.policy_id` field into reply
-  [44%] Agent does not check channel.external before posting
-
-Cluster #4 — 3 scenarios — MEDIUM
-Symptom: large refund processed without approval
-Suspected causes:
-  [91%] Threshold check uses payment.amount in cents but compares to dollars
+```yaml
+- name: no_duplicate_refund_per_payment_intent
+  scope: stripe
+  rule: "for each payment_intent, POST /refunds occurs at most once"
 ```
 
-Cluster #4 makes her gasp. She would have shipped that.
+### Monday — replay with mutations
 
-### Day 1 — Fix and rerun
+```
+agentguard replay --trace incident-2024-11-08 --mutations retry,timeout_after_success
+```
 
-She fixes the threshold bug first. Reruns just Cluster #4. Passes. Fixes idempotency, customer-id matching, prompt template. Reruns. 211/214 pass. The 3 remaining are edge cases she explicitly chooses to defer; she annotates them as `accepted_risk` and they stop blocking.
+12 mutated runs. 4 violate the invariant. She has reproduced the bug deterministically and found 3 sibling cases she would not have thought to test.
 
-### Day 2 — Lock it in CI
+### Monday — fix and lock
+
+She fixes idempotency on the refund call. Re-runs. 0/12 violations. She runs:
 
 ```
 agentguard install-action
 ```
 
-PR-mode workflow added. From now on, every PR runs the failure-prone subset in ~2 minutes. Nightly job runs full exploration and opens an issue if a new cluster appears.
+A GitHub Action is added. From now on, every PR replays this trace + its mutations + every other trace she ingests. The Saturday incident cannot recur silently.
 
-### Day 12 — Prompt change regression
+### Day 30 — second incident, smaller blast radius
 
-A teammate tweaks the system prompt to be more concise. PR opens. AgentGuard PR comment:
+A teammate changes the system prompt. PR opens. AgentGuard comments:
 
 ```
 AgentGuard: Blocked
-New failure cluster detected (not present in baseline):
-  Cluster — 9 scenarios — CRITICAL
-  Symptom: agent skips human approval for refunds over $500
-  Suspected causes:
-    [84%] New prompt removed "ALWAYS check approval threshold" instruction
-    [52%] Tool-use order changed: refund called before approval check
+
+[critical] no_duplicate_refund_per_payment_intent
+  Violated in 2 of 12 mutated traces from incident-2024-11-08.
+  Mutation axis: retry.
+  This invariant passed on main. It fails on this PR.
+  Trace links: [#1] [#2]
 ```
 
-Teammate reverts the line. Green. Merge.
+Teammate inspects the trace. The prompt change removed a sentence about idempotency. They restore it. Green. Merge.
 
-### Day 30 — Production-shaped variant
-
-A real customer hits a weird state: two payments same amount, one disputed, one not. Maya feeds the production trace in:
-
-```
-agentguard import-trace ./prod-trace.json --generalize
-```
-
-AgentGuard redacts PII, infers the initial state, generates 14 mutated variants around that shape, adds them to the suite. The bug never returns.
+The agent did not regress in production. That is the product.
 
 ---
 
-## 5. MVP Scope
+## 6. MVP Scope
 
 **In:**
-- CLI: `analyze`, `explore`, `run`, `report`, `install-action`, `import-trace`
-- ABM extractor (LLM-driven, deterministic schema output)
-- Scenario synthesizer + mutation engine
-- Stateful clones for Slack, Stripe, Linear
-- Failure injection (timeout, timeout_after_success, 429, 500, stale_read, duplicate_webhook, out_of_order_webhook)
-- Trace recorder
-- Failure clustering by behavioral signature
-- Root-cause ranker with confidence scores
-- HTML + terminal report
-- GitHub Action (PR mode + nightly mode)
 
-**Out (later):**
+- CLI: `init`, `record`, `ingest`, `replay`, `report`, `install-action`
+- OTel ingest + 50-LOC SDK shim for under-instrumented frameworks
+- Deterministic PII redactor (user-controlled rule set, auditable)
+- Invariant DSL: YAML + Python, ~10 built-in predicates
+- Seven mutation axes (above), each with config knobs
+- Local re-execution of the customer's agent against recorded + mutated tool responses
+- Flat invariant-violation report (HTML + terminal)
+- Deterministic grouping by (invariant, mutation axis)
+- GitHub Action: PR mode + nightly mode
+
+**Out (v1):**
+
+- Universal scenario generator from a BRD
+- ABM extraction from docs
+- LLM-judged root-cause attribution with confidence scores
 - Hosted dashboard
-- More tool clones (GitHub, Jira, Gmail, HubSpot)
-- SSO, RBAC, audit exports — none of that until paying customers ask
-- Auto-fix suggestions
-- Production monitoring
+- Hosted tool clones (we replay recorded responses; we do not simulate Stripe)
+- Vertical packs (cybersec, marketing, reporting) — wait for 10 paying customers in the wedge first
+- Auto-fix
+- SSO, RBAC, audit exports — until paying customers ask
 
 ---
 
-## 6. Stack
+## 7. Stack
 
-- **Language:** Python 3.12, FastAPI for clones, Typer for CLI.
-- **Storage:** SQLite local, JSON trace files, single-file HTML report.
-- **Parallelism:** asyncio + process pool for scenario runs.
-- **LLM for ABM extraction and root-cause ranking:** Claude Sonnet/Opus via Anthropic SDK with prompt caching on the BRD and trace prefixes.
-- **No backend, no auth, no DB server required for local use.** Hosted dashboard is a later layer on top of the same trace format.
-
----
-
-## 7. Build Order
-
-1. ABM extractor on a sample BRD — prove the spec-to-model step works.
-2. One clone deeply (Stripe) with failure injection.
-3. Trace recorder + signature hash.
-4. Scenario synthesizer driven by ABM.
-5. Mutation engine with coverage-guided seeding.
-6. Slack and Linear clones.
-7. Behavioral clustering + root-cause ranker.
-8. HTML report.
-9. GitHub Action.
-10. `import-trace --generalize`.
+- **Language:** Python 3.12, Typer CLI.
+- **Storage:** SQLite local, JSON traces, single-file HTML report. No backend, no DB server.
+- **Parallelism:** asyncio + process pool for mutated replays.
+- **Trace ingest:** OpenTelemetry-native, with `agentguard.*` semantic-convention attributes.
+- **LLM use:** only in the PII redactor's "review uncertain spans" mode, optional, off by default. No LLM in mutation, replay, invariant evaluation, or reporting. Determinism is a product feature.
+- **Trace storage:** `.agentguard/traces/` is git-ignored by default; a manifest with trace IDs and content hashes is committed so CI fetches the right traces. Large customers point AgentGuard at an external blob store (S3, GCS) via `agentguard.yaml`. Repos stay small; traces stay reproducible.
 
 ---
 
-## 8. Success Criteria
+## 8. Build Order
 
-AgentGuard ships when, on a real third-party refund agent, it:
+1. Trace schema (`Trace`, `Event`, `spawn` edges) + OTel ingest.
+2. Deterministic PII redactor + 50-LOC SDK shim.
+3. Invariant DSL + 10 built-in predicates.
+4. Local re-execution harness — replay a recorded trace verbatim, assert pass.
+5. Mutation axis #1 (retry / duplicate side effect) end-to-end on one real refund agent.
+6. Mutation axes #2–#7.
+7. Flat invariant-violation report (HTML + terminal).
+8. Deterministic grouping.
+9. GitHub Action — PR mode + nightly.
+10. Onboarding polish: `init`, `ingest`, example invariants, docs.
 
-1. Extracts an ABM from the agent's README in under 60 seconds.
-2. Generates ≥150 distinct scenarios with no manual authoring.
-3. Finds at least one real bug the developer did not know about.
-4. Clusters failures into ≤10 groups with ≥70% top-cause confidence accuracy when audited by a human.
-5. Runs PR-mode in ≤3 minutes on standard CI hardware.
-6. Blocks a regression PR end-to-end through the GitHub Action.
+Ten steps. No cube. No ABM. No clustering ML.
 
 ---
 
-## 9. The Thesis
+## 9. Success Criteria
 
-> Agent reliability is not a prompt problem or an output problem. It is a **state and workflow** problem. The only way to find the bugs that matter is to enumerate realistic workflows automatically, run them against stateful tools, and explain the failures by cause — not by symptom.
+AgentGuard ships when, on a real third-party support agent and a real incident trace from that customer:
+
+1. Ingest + PII redaction completes in under 30 seconds for a 10 MB trace.
+2. The customer writes their first invariant in under 10 minutes from cold start.
+3. Mutated replay reproduces the original incident on at least one mutation axis.
+4. Mutated replay finds at least one additional invariant violation the customer had not thought of, on a different mutation axis.
+5. PR mode runs in ≤2 min on standard CI hardware.
+6. The customer commits the invariant + the GitHub Action, on their own, without a sales call.
+
+---
+
+## 10. What We Explicitly Do Not Do (and Why)
+
+- **We do not generate scenarios from a BRD.** Real BRDs are out of date, contradictory, and don't exist for new agents. Extracting a useful spec from them is an unbounded LLM-on-LLM problem with no ground truth.
+- **We do not host tool clones.** Customers' tool surfaces are unbounded (internal microservices, Salesforce custom objects, in-house billing). We replay *recorded* tool responses from real traces.
+- **We do not rank root causes with LLM-generated confidence percentages.** Confidence theater erodes trust the first time we are wrong. We show invariant + mutation axis + trace link. The engineer does the rest.
+- **We do not promise universal coverage of "all agent failures."** We cover the seven failure axes that show up in real postmortems. When customers hit one we missed, we add it deliberately, not generatively.
+- **We do not cover four verticals at launch.** One wedge, ten paying customers, then expand. Anything else is a slide, not a product.
+- **We do not run in production.** AgentGuard is a pre-merge CI gate. We do not enforce invariants at runtime, do not monitor live agents, do not page on prod incidents. Arize / Datadog / Langfuse / LangSmith occupy that space; we are deliberately upstream of them and ingest *from* them.
+
+---
+
+## 11. Thesis
+
+> Agent reliability is a state and workflow problem. The cheapest, most honest way to solve it is to take real production traces, mutate them along the small set of failure modes that actually break agents, evaluate explicit invariants, and gate the regression PR. Everything else is research-bait. Ship the boring version.
